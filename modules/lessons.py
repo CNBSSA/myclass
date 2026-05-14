@@ -1,8 +1,19 @@
+from pathlib import Path
+
 import streamlit as st
 
 from core import ai, parsers, sandbox
 from core.db import DATA_DIR
 from modules import lessons_db as db
+
+
+def _unlink_quietly(file_path: str | None) -> None:
+    if not file_path:
+        return
+    try:
+        Path(file_path).unlink(missing_ok=True)
+    except Exception:
+        pass
 
 
 def _init_state() -> None:
@@ -130,7 +141,26 @@ def _render_materials_tab(lesson: dict) -> None:
         )
         return
 
-    st.subheader(f"Materials ({len(materials)})")
+    head_l, head_r = st.columns([3, 1])
+    with head_l:
+        st.subheader(f"Materials ({len(materials)})")
+    with head_r:
+        with st.popover("🗑 Remove ALL", use_container_width=True):
+            st.warning(
+                f"Permanently delete **all {len(materials)} files** for this "
+                f"lesson? This removes both the DB records and the saved files "
+                f"on disk. This cannot be undone."
+            )
+            if st.button(
+                "Confirm — delete every material",
+                key=f"confirm_del_all_mats_{lesson['id']}",
+                type="primary",
+            ):
+                paths = db.delete_all_lesson_materials(lesson["id"])
+                for p in paths:
+                    _unlink_quietly(p)
+                st.rerun()
+
     for m in materials:
         with st.container(border=True):
             c1, c2 = st.columns([5, 1])
@@ -150,7 +180,8 @@ def _render_materials_tab(lesson: dict) -> None:
             with c2:
                 if st.button("Remove", key=f"rm_mat_{m['id']}",
                              use_container_width=True):
-                    db.delete_lesson_material(m["id"])
+                    removed_path = db.delete_lesson_material(m["id"])
+                    _unlink_quietly(removed_path)
                     st.rerun()
 
 

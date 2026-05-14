@@ -47,9 +47,29 @@ def add_lesson_material(lesson_id: int, parsed_file: dict) -> int:
         return row["id"]
 
 
-def delete_lesson_material(material_id: int) -> None:
+def delete_lesson_material(material_id: int) -> str | None:
     with get_conn() as conn:
+        row = conn.execute(
+            "SELECT file_path FROM lesson_materials WHERE id = %s",
+            (material_id,),
+        ).fetchone()
+        if not row:
+            return None
         conn.execute("DELETE FROM lesson_materials WHERE id = %s", (material_id,))
+    return row["file_path"]
+
+
+def delete_all_lesson_materials(lesson_id: int) -> list[str]:
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT file_path FROM lesson_materials WHERE lesson_id = %s",
+            (lesson_id,),
+        ).fetchall()
+        conn.execute(
+            "DELETE FROM lesson_materials WHERE lesson_id = %s",
+            (lesson_id,),
+        )
+    return [r["file_path"] for r in rows]
 
 
 def add_mcq_attempt(
