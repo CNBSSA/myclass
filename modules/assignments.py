@@ -199,25 +199,57 @@ def _stream_initial_solution(problem: dict) -> None:
     )
 
 
-def _stream_followup(problem: dict, prompt: str) -> None:
+def _stream_followup(problem: dict, prompt: str, attached_files=None) -> None:
+    parsed_attachments: list[dict] = []
+    if attached_files:
+        dest = (
+            DATA_DIR / "uploads"
+            / f"assignment_{problem['assignment_id']}" / "qa"
+        )
+        for uf in attached_files:
+            pf = parsers.save_and_parse(uf.name, uf.getvalue(), dest)
+            parsed_attachments.append(pf)
+
+    if parsed_attachments:
+        attachment_lines = "\n".join(
+            f"- {f['filename']} ({f['file_type']})"
+            for f in parsed_attachments
+        )
+        display_text = f"{prompt}\n\n**📎 Attached:**\n{attachment_lines}"
+    else:
+        display_text = prompt
+
+    user_text_for_claude = prompt
+    non_image = [
+        f for f in parsed_attachments if f["file_type"] != "image"
+    ]
+    if non_image:
+        extras = parsers.aggregate_text(non_image)
+        user_text_for_claude = (
+            f"{prompt}\n\n--- Attached file contents ---\n{extras}"
+        )
+
+    image_paths = parsers.image_paths(parsed_attachments) or None
+
+    db.add_qa_entry(problem["id"], "user", display_text)
+
     messages: list[dict] = [
         {"role": "user", "content": _initial_user_prompt(problem)},
         {"role": "assistant",
          "content": problem.get("solution_explanation") or ""},
     ]
-    for entry in db.list_qa(problem["id"]):
+    qa_entries = db.list_qa(problem["id"])
+    for entry in qa_entries[:-1]:
         messages.append({"role": entry["role"], "content": entry["content"]})
-    messages.append({"role": "user", "content": prompt})
-
-    db.add_qa_entry(problem["id"], "user", prompt)
+    messages.append({"role": "user", "content": user_text_for_claude})
 
     with st.chat_message("user"):
-        st.markdown(prompt)
+        st.markdown(display_text)
     chunks: list[str] = []
     with st.chat_message("assistant"):
         ph = st.empty()
         try:
-            for chunk in ai.stream_chat(messages):
+            for chunk in ai.stream_chat(messages, image_paths=image_paths):
                 chunks.append(chunk)
                 ph.markdown("".join(chunks) + "▌")
             ph.markdown("".join(chunks))
@@ -382,10 +414,19 @@ def _render_solve() -> None:
             with st.chat_message(entry["role"]):
                 st.markdown(entry["content"])
 
-        prompt = st.chat_input("Ask a question about this problem…")
-        if prompt:
-            _stream_followup(active, prompt)
-            st.rerun()
+        chat_value = st.chat_input(
+            "Ask a question about this problem… (paperclip to attach files)",
+            accept_file="multiple",
+            file_type=[
+                ext.lstrip(".") for ext in sorted(parsers.ALL_SUPPORTED_EXTS)
+            ],
+        )
+        if chat_value:
+            text = (chat_value.text or "").strip()
+            files = chat_value.files or []
+            if text or files:
+                _stream_followup(active, text or "(no text)", files)
+                st.rerun()
     else:
         st.info(
             "Click **Generate Solution** below and I'll write the code with a "
