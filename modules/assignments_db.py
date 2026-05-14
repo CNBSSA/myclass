@@ -79,8 +79,8 @@ def add_problem(assignment_id: int, number: int, text: str) -> int:
 def list_problems(assignment_id: int) -> list[dict]:
     with get_conn() as conn:
         return conn.execute(
-            "SELECT id, problem_number, problem_text, solution_code, "
-            "solution_explanation, status, created_at, completed_at "
+            "SELECT id, assignment_id, problem_number, problem_text, "
+            "solution_code, solution_explanation, status, created_at, completed_at "
             "FROM problems WHERE assignment_id = %s ORDER BY problem_number",
             (assignment_id,),
         ).fetchall()
