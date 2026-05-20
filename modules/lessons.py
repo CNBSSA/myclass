@@ -25,6 +25,7 @@ def _init_state() -> None:
     ss.setdefault("l_challenge", None)
     ss.setdefault("l_user_code", "")
     ss.setdefault("l_last_review", None)
+    ss.setdefault("l_confirm_delete_all", False)
 
 
 def _aggregate_materials_text(materials: list[dict]) -> str:
@@ -145,20 +146,37 @@ def _render_materials_tab(lesson: dict) -> None:
     with head_l:
         st.subheader(f"Materials ({len(materials)})")
     with head_r:
-        with st.popover("🗑 Remove ALL", use_container_width=True):
-            st.warning(
-                f"Permanently delete **all {len(materials)} files** for this "
-                f"lesson? This removes both the DB records and the saved files "
-                f"on disk. This cannot be undone."
-            )
+        if st.button("🗑 Remove ALL", use_container_width=True,
+                     key=f"ask_del_all_{lesson['id']}"):
+            st.session_state.l_confirm_delete_all = True
+            st.rerun()
+
+    if st.session_state.l_confirm_delete_all:
+        st.warning(
+            f"Permanently delete **all {len(materials)} files** for this "
+            f"lesson? This removes the DB records and the saved files on disk. "
+            f"This cannot be undone."
+        )
+        cc1, cc2 = st.columns(2)
+        with cc1:
             if st.button(
-                "Confirm — delete every material",
-                key=f"confirm_del_all_mats_{lesson['id']}",
+                "✓ Yes, delete everything",
                 type="primary",
+                use_container_width=True,
+                key=f"do_del_all_{lesson['id']}",
             ):
                 paths = db.delete_all_lesson_materials(lesson["id"])
                 for p in paths:
                     _unlink_quietly(p)
+                st.session_state.l_confirm_delete_all = False
+                st.rerun()
+        with cc2:
+            if st.button(
+                "Cancel",
+                use_container_width=True,
+                key=f"cancel_del_all_{lesson['id']}",
+            ):
+                st.session_state.l_confirm_delete_all = False
                 st.rerun()
 
     for m in materials:
