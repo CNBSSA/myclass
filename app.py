@@ -85,7 +85,7 @@ with st.sidebar:
         st.success("Claude API connected")
 
     st.caption(f"Model: `{os.getenv('ANTHROPIC_MODEL', 'claude-opus-4-7')}`")
-    st.caption("build: 2026-05-21 · delete-fix v4")
+    st.caption("build: 2026-05-21 · quiz-lecture v5")
 
 
 if module == "Home":

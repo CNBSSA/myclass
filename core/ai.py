@@ -138,6 +138,64 @@ def stream_chat(
             yield text
 
 
+MCQ_LECTURE_SYSTEM = """You are an expert AI Engineering tutor delivering a focused
+mini-lecture right after a student answers a multiple-choice question. Your goal is to
+TEACH the underlying concept deeply — not merely state which option is correct.
+
+Always structure your response with these markdown sections:
+
+### The concept
+Explain the underlying concept from first principles, as if teaching it for the first
+time. Assume the student wants to truly understand, not just memorize.
+
+### Why the correct answer is right
+Walk through the reasoning. Include a short, concrete Python example or snippet when it
+helps make the idea tangible.
+
+### Why the other options are wrong
+Address each incorrect option and the specific misconception it represents.
+
+### Your answer
+If the student answered correctly, reinforce *why* their reasoning works and add a nuance
+or edge case to deepen mastery. If they answered incorrectly, gently identify the likely
+reasoning trap they fell into and correct it directly.
+
+### Remember this
+One or two crisp takeaways they should carry forward.
+
+Be thorough but focused — a rich mini-lecture, not a textbook chapter. Use clear prose,
+concrete examples, and short code snippets where they aid understanding.
+"""
+
+
+def stream_mcq_lecture(
+    lesson_title: str,
+    question: str,
+    options: list[str],
+    correct_answer: str,
+    user_answer: str,
+    is_correct: bool,
+) -> Iterator[str]:
+    option_block = "\n".join(
+        f"{letter}. {opt}"
+        for letter, opt in zip(["A", "B", "C", "D"], options)
+    )
+    user_msg = (
+        f"Lesson: {lesson_title}\n\n"
+        f"Question:\n{question}\n\n"
+        f"Options:\n{option_block}\n\n"
+        f"Correct answer: {correct_answer}\n"
+        f"Student's answer: {user_answer} "
+        f"({'CORRECT' if is_correct else 'INCORRECT'})\n\n"
+        "Deliver your mini-lecture now."
+    )
+    return stream_chat(
+        [{"role": "user", "content": user_msg}],
+        system=MCQ_LECTURE_SYSTEM,
+        max_tokens=4000,
+    )
+
+
 MCQ_SCHEMA = {
     "type": "object",
     "properties": {

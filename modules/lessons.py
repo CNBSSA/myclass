@@ -250,6 +250,7 @@ def _render_quiz_tab(lesson: dict) -> None:
                 "current": 0,
                 "answers": [None] * len(questions),
                 "submitted": [False] * len(questions),
+                "lectures": {},
             }
             st.rerun()
         return
@@ -308,8 +309,31 @@ def _render_quiz_tab(lesson: dict) -> None:
                 st.error(f"✗ {label} (your answer)")
             else:
                 st.markdown(f"&nbsp;&nbsp; {label}")
-        st.markdown("**Explanation**")
+        st.markdown("**Quick answer**")
         st.info(q["explanation"])
+
+        st.markdown("**📚 In-depth explanation**")
+        lectures = quiz.setdefault("lectures", {})
+        if idx not in lectures:
+            chunks: list[str] = []
+            ph = st.empty()
+            try:
+                for chunk in ai.stream_mcq_lecture(
+                    lesson_title=lesson["title"],
+                    question=q["question"],
+                    options=q["options"],
+                    correct_answer=correct_letter,
+                    user_answer=user_letter,
+                    is_correct=(user_letter == correct_letter),
+                ):
+                    chunks.append(chunk)
+                    ph.markdown("".join(chunks) + "▌")
+                ph.markdown("".join(chunks))
+                lectures[idx] = "".join(chunks)
+            except Exception as e:
+                ph.error(f"Could not generate the in-depth explanation: {e}")
+        else:
+            st.markdown(lectures[idx])
 
         c1, c2 = st.columns([3, 1])
         with c1:
