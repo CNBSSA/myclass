@@ -178,8 +178,17 @@ def _render_materials_tab(lesson: dict) -> None:
             ):
                 st.session_state.l_confirm_delete_all = False
                 st.rerun()
+        return
 
-    for m in materials:
+    MAX_SHOWN = 30
+    shown = materials[:MAX_SHOWN]
+    if len(materials) > MAX_SHOWN:
+        st.caption(
+            f"Showing {MAX_SHOWN} of {len(materials)} files. "
+            f"Use **Remove ALL** above to clear them all at once."
+        )
+
+    for m in shown:
         with st.container(border=True):
             c1, c2 = st.columns([5, 1])
             with c1:
